@@ -12,3 +12,6 @@ venv/
 
 # Logs
 *.log
+
+# Ignore data files
+data/

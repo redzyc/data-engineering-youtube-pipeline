@@ -44,12 +44,24 @@ class YouTubeClient:
 if __name__ == "__main__":
     try:
         client = YouTubeClient()
-        ids = client.search_videos("Data Engineering", max_results=3)
+        serach_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence"]
 
-        if ids:
-            details = client.get_video_details(ids[0]['id']['videoId'])
-            os.makedirs('data/raw', exist_ok=True)
-            with open(f'data/raw/youtube_sample.json', 'w', encoding='utf-8') as f:
-                json.dump(details, f, indent=4, ensure_ascii=False)
+        all_videos = []
+        for item in serach_items:
+            ids = client.search_videos(item, max_results=2)
+            if ids:
+                details = client.get_video_details(ids[0]['id']['videoId'])
+                all_videos.extend(details)
+        if all_videos:
+            timestamp = int(__import__('time').time())
+            filename = f'youtube_videos_{timestamp}.json'
+
+            output_path = os.path.join('data', 'ingest', filename)
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, 'w') as f:
+                json.dump(all_videos, f, indent=4)
+            print(f"Video details saved to {output_path}")
+        else:
+            print("No video details found.")
     except ValueError as ve:
         print(ve)

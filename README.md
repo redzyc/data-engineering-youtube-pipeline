@@ -5,6 +5,8 @@ An end-to-end data engineering pipeline implementing the Lambda Architecture. Th
 ## Table of Contents
 - [Architecture](#architecture)
 - [Features](#features)
+- [Phase I: Data Source & Extraction](#-phase-i-data-source--extraction-completed)
+- [Phase II: Infrastructure & Ingestion](#-phase-ii-infrastructure--ingestion-completed)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
@@ -32,6 +34,83 @@ This repository follows the Lambda Architecture to balance low-latency stream pr
 - YouTube ingestion client with robust error handling
 - Support for batch processing (Spark) and simulated streaming (polling + Kafka)
 - Modular code layout for ingestion, processing, and visualization
+ 
+---
+
+## 📍 Phase I: Data Source & Extraction (Completed)
+
+Phase I focused on establishing secure, maintainable connectivity to external data sources and building a reliable extraction client. The goal was a small, well-tested set of extraction components that can be run locally or inside containers and that adhere to security best practices.
+
+### 🔹 Key features
+
+- Source: YouTube Data API v3 for video metadata and statistics.
+- Security: API keys are read from environment variables (see the `.env` instructions below) and are excluded from version control.
+- Client: A modular Python client (YouTubeClient) performs authenticated API calls with error handling and retry logic.
+- Data entities captured: video metadata (title, id, channel) and statistics (view count, like count).
+
+### ⚠️ Technical note on streaming
+
+The YouTube Data API is REST-based and does not provide push-style streaming (WebSockets). To enable a streaming-like workflow we simulate a speed layer using high-frequency polling combined with NiFi and Kafka.
+
+Solution: A scheduled extraction (Python) writes time-stamped JSON snapshots to a local landing directory. NiFi picks up new files, then routes and transforms them into both batch and streaming paths (see Phase II below).
+
+Implementation: Python extraction scripts and NiFi processors that detect new files handle data freshness; the approach is intentionally simple and easy to debug.
+
+### 🚀 Quick start (Phase I)
+
+Follow Setup and Environment sections above for a full environment. Quick checklist to test extraction locally:
+
+1. Ensure you have a working virtual environment and dependencies installed (see "Setup").
+2. Create `.env` with your `YOUTUBE_API_KEY` or export the env var directly.
+3. Run the ingestion client to fetch a sample and write to the landing zone:
+
+```bash
+python src/ingestion/youtube_client.py
+```
+
+If the API key is set and network access is available, the client writes timestamped JSON files into `data/ingest/` and prints a summary to stdout. These files are the input for Phase II (NiFi ingestion and routing).
+
+---
+
+## ⚙️ Phase II: Infrastructure & Ingestion (Completed)
+
+Building on the initial data-source work (Phase I), Phase II establishes the infrastructure and ingestion layer that turns API extraction into a robust, reproducible data flow. The focus here was on containerized infrastructure, a durable landing pattern, and reliable routing for both batch and speed paths following the Lambda Architecture.
+
+### 🏗 Infrastructure stack (Docker)
+
+The platform runs in Docker containers defined by `docker/docker-compose.yaml` and includes:
+
+- **Apache NiFi** — Orchestrates and routes dataflow; configured with Controller Services to keep connection details centralized and secure.
+- **Apache Kafka & Zookeeper** — Message broker for the speed layer and stream-driven pipelines.
+- **MinIO** — S3-compatible object store used as the raw Data Lake for immutable archives.
+
+### 🔄 Ingestion design & data flow
+
+We implemented a localized "Landing Zone" pattern that decouples the extraction step (Python client) from NiFi ingestion logic. This keeps the extraction process simple and testable while giving NiFi the responsibility for durable ingestion and routing.
+
+```mermaid
+graph LR
+		A[Python client] -->|Writes JSON| B(Local landing zone<br/>/data/ingest)
+		B -->|Mounted volume| C{Apache NiFi}
+		C -->|GetFile| D[Flow splitter]
+		D -->|PutS3Object| E[(MinIO - youtube-raw)]
+		D -->|Split JSON → PublishKafka| F{{Kafka topic - youtube_stream}}
+```
+
+How it works (brief):
+- Extraction: The Python client writes timestamped JSON files to `data/ingest` (local landing zone).
+- Ingestion: NiFi's GetFile processor watches the mounted folder and picks up files as they arrive.
+- Routing / Lambda Alignment:
+	- Batch (historical): Raw JSON files are archived to MinIO (youtube-raw bucket) for batch processing and lineage.
+	- Speed (near-real-time): NiFi splits JSON into records and publishes them to the `youtube_stream` Kafka topic for streaming pipelines.
+
+### 🛠 Key technical configurations
+
+- NiFi Controller Services — configured a `KafkaConnectionService` and an `AWSCredentialsProviderService` to avoid embedding credentials in processors.
+- MinIO — path-style access enabled to ensure compatibility with NiFi’s S3-compatible processors.
+- Kafka listeners — PLAINTEXT listeners were configured for internal Docker communication (NiFi → Kafka) and to allow external access when debugging locally.
+
+This phase lays the foundation for resilient ingestion and clear separation of concerns. It keeps extraction lightweight, ingestion reliable, and storage immutable — all requirements for a maintainable data platform.
 
 ---
 
