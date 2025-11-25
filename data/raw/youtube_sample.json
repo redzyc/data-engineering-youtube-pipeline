@@ -1,0 +1,64 @@
+[
+    {
+        "kind": "youtube#video",
+        "etag": "yJPpeIV7QbiC1iUy2aeIH5cBcdc",
+        "id": "PHsC_t0j1dU",
+        "snippet": {
+            "publishedAt": "2024-01-16T15:22:46Z",
+            "channelId": "UC8butISFwT-Wl7EV0hUK0BQ",
+            "title": "Data Engineering Course for Beginners",
+            "description": "Learn the essentials of data engineering in this course for beginners. You'll learn about Databases, Docker, and analytical engineering. You'll explore advanced topics like data pipeline building with Airflow, and engage in batch processing with Spark and streaming data with Kafka. The course culminates in a comprehensive project, putting your skills to the test in creating a full end-to-end pipeline. \n\n✏️ Justin Chau created this course. \n\nCourse Resources: https://transparent-trout-f2f.notion.site/FreeCodeCamp-Data-Engineering-Course-Resources-e9d2b97aed5b4d4a922257d953c4e759\n\nThanks to Airbyte for providing a grant to make this course possible.\n\n❤️ Try interactive Databases courses we love, right in your browser: https://scrimba.com/freeCodeCamp-Databases (Made possible by a grant from our friends at Scrimba)\n\n\n⭐️ Contents ⭐️\n⌨️ (0:00:00) Introduction\n⌨️ (0:00:36) Why Data Engineering\n⌨️ (0:03:14) Docker\n⌨️ (0:30:38) SQL\n⌨️ (1:04:32) Building a Data Pipeline from Scratch\n⌨️ (1:31:03) dbt\n⌨️ (2:04:11) CRON Job\n⌨️ (2:07:54) Airflow\n⌨️ (2:41:14) Airbyte\n⌨️ (3:01:54) Outro\n\n\n\n🎉 Thanks to our Champion and Sponsor supporters:\n👾 davthecoder\n👾 jedi-or-sith\n👾 南宮千影\n👾 Agustín Kussrow\n👾 Nattira Maneerat\n👾 Heather Wcislo\n👾 Serhiy Kalinets\n👾 Justin Hual\n👾 Otis Morgan \n👾 Oscar Rahnama\n\n--\n\nLearn to code for free and get a developer job: https://www.freecodecamp.org\n\nRead hundreds of articles on programming: https://freecodecamp.org/news",
+            "thumbnails": {
+                "default": {
+                    "url": "https://i.ytimg.com/vi/PHsC_t0j1dU/default.jpg",
+                    "width": 120,
+                    "height": 90
+                },
+                "medium": {
+                    "url": "https://i.ytimg.com/vi/PHsC_t0j1dU/mqdefault.jpg",
+                    "width": 320,
+                    "height": 180
+                },
+                "high": {
+                    "url": "https://i.ytimg.com/vi/PHsC_t0j1dU/hqdefault.jpg",
+                    "width": 480,
+                    "height": 360
+                },
+                "standard": {
+                    "url": "https://i.ytimg.com/vi/PHsC_t0j1dU/sddefault.jpg",
+                    "width": 640,
+                    "height": 480
+                },
+                "maxres": {
+                    "url": "https://i.ytimg.com/vi/PHsC_t0j1dU/maxresdefault.jpg",
+                    "width": 1280,
+                    "height": 720
+                }
+            },
+            "channelTitle": "freeCodeCamp.org",
+            "categoryId": "27",
+            "liveBroadcastContent": "none",
+            "defaultLanguage": "en",
+            "localized": {
+                "title": "Data Engineering Course for Beginners",
+                "description": "Learn the essentials of data engineering in this course for beginners. You'll learn about Databases, Docker, and analytical engineering. You'll explore advanced topics like data pipeline building with Airflow, and engage in batch processing with Spark and streaming data with Kafka. The course culminates in a comprehensive project, putting your skills to the test in creating a full end-to-end pipeline. \n\n✏️ Justin Chau created this course. \n\nCourse Resources: https://transparent-trout-f2f.notion.site/FreeCodeCamp-Data-Engineering-Course-Resources-e9d2b97aed5b4d4a922257d953c4e759\n\nThanks to Airbyte for providing a grant to make this course possible.\n\n❤️ Try interactive Databases courses we love, right in your browser: https://scrimba.com/freeCodeCamp-Databases (Made possible by a grant from our friends at Scrimba)\n\n\n⭐️ Contents ⭐️\n⌨️ (0:00:00) Introduction\n⌨️ (0:00:36) Why Data Engineering\n⌨️ (0:03:14) Docker\n⌨️ (0:30:38) SQL\n⌨️ (1:04:32) Building a Data Pipeline from Scratch\n⌨️ (1:31:03) dbt\n⌨️ (2:04:11) CRON Job\n⌨️ (2:07:54) Airflow\n⌨️ (2:41:14) Airbyte\n⌨️ (3:01:54) Outro\n\n\n\n🎉 Thanks to our Champion and Sponsor supporters:\n👾 davthecoder\n👾 jedi-or-sith\n👾 南宮千影\n👾 Agustín Kussrow\n👾 Nattira Maneerat\n👾 Heather Wcislo\n👾 Serhiy Kalinets\n👾 Justin Hual\n👾 Otis Morgan \n👾 Oscar Rahnama\n\n--\n\nLearn to code for free and get a developer job: https://www.freecodecamp.org\n\nRead hundreds of articles on programming: https://freecodecamp.org/news"
+            },
+            "defaultAudioLanguage": "en"
+        },
+        "contentDetails": {
+            "duration": "PT3H3M43S",
+            "dimension": "2d",
+            "definition": "hd",
+            "caption": "false",
+            "licensedContent": true,
+            "contentRating": {},
+            "projection": "rectangular"
+        },
+        "statistics": {
+            "viewCount": "962804",
+            "likeCount": "14508",
+            "favoriteCount": "0",
+            "commentCount": "388"
+        }
+    }
+]
