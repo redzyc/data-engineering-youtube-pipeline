@@ -40,6 +40,7 @@ class YouTubeClient:
         except HttpError as e:
             print(f"An HTTP error occurred: {e}")
             return []
+        
 if __name__ == "__main__":
     try:
         client = YouTubeClient()
