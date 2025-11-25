@@ -1,87 +1,143 @@
 # data-engineering-youtube-pipeline
-End-to-end Data Engineering pipeline implemented using Lambda Architecture. Features data ingestion, batch and streaming processing, and visualization leveraging a modern Big Data stack (Spark, Kafka, NiFi, MinIO, Docker).
+
+An end-to-end data engineering pipeline implementing the Lambda Architecture. The project demonstrates ingestion, batch processing, streaming simulation, and visualization using a modern data stack (Spark, Kafka, NiFi, MinIO, Docker).
+
+## Table of Contents
+- [Architecture](#architecture)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Setup](#setup)
+- [Environment variables](#environment-variables)
+- [Run the ingestion client](#run-the-ingestion-client)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-# Architecture
-The project follows the **Lambda Architecture** principles to handle both batch and real-time data processing:
-1.  **Ingestion Layer:** Fetching data from external APIs (YouTube).
-2.  **Storage Layer (Data Lake):** MinIO (S3 compatible) for raw data storage.
-3.  **Speed Layer (Streaming):** Apache Kafka & Spark Streaming.
-4.  **Batch Layer:** Apache Spark for historical data processing.
-5.  **Serving Layer:** SQL Databases (Postgres) & BI Dashboards.
+## Architecture
+
+This repository follows the Lambda Architecture to balance low-latency stream processing and accurate historical batch processing:
+
+- Ingestion Layer: Collects data from external APIs (e.g. YouTube Data API v3).
+- Storage / Data Lake: Raw data persisted to an S3-compatible store (MinIO) for later batch processing.
+- Speed Layer: Simulated streaming via high-frequency polling and Kafka for near-real-time processing.
+- Batch Layer: Apache Spark jobs for historical/large-scale transformations.
+- Serving Layer: Processed results are stored in a serving database (Postgres) and visualized via BI tools.
+
+---
+
+## Features
+
+- YouTube ingestion client with robust error handling
+- Support for batch processing (Spark) and simulated streaming (polling + Kafka)
+- Modular code layout for ingestion, processing, and visualization
 
 ---
 
 ## Project Structure
-The repository is organized to separate concerns and ensure scalability:
 
+Top-level layout:
+
+```
 data-engineering-youtube-pipeline/
-├── config/              # Configuration files
-├── docker/              # Docker infrastructure (docker-compose)
+├── config/              # configuration files and templates
+├── data/                # sample & raw data
+│   └── raw/
+├── docker/              # docker-compose and related infra
 ├── src/
-│   ├── ingestion/       # Python scripts for data extraction (APIs)
-│   ├── processing/      # Spark jobs for transformation
-│   └── visualization/   # Dashboard configs
-├── tests/               # Unit and integration tests
-├── .env                 # Environment variables (not committed)
-├── .gitignore           # Git ignore rules
+│   ├── ingestion/       # data ingestion clients and helpers
+│   ├── processing/      # Spark jobs and ETL code
+│   └── visualization/   # dashboard and visualization configs
+├── tests/               # unit and integration tests
 ├── requirements.txt     # Python dependencies
-└── README.md            # Project documentation
+└── README.md            # this file
+```
 
-## Phase I: Data Source & Extractions (Completed)
+---
 
-The first phase focuses on establishing secure connectivity with external data sources.
+## Prerequisites
 
-Key Features
-Source: YouTube Data API v3.
+- Python 3.8+ (virtual environment recommended)
+- Docker & Docker Compose (for running infra like MinIO and Kafka locally)
 
-Security: API Keys are managed via environment variables (.env) and excluded from version control.
+---
 
-Client Implementation: A modular Python client (YouTubeClient) handles authentication, error handling, and data fetching.
+## Setup
 
-Data Entities: The pipeline extracts Video Metadata (Title, ID, Channel) and Statistics (View Count, Like Count).
+1. Clone the repository
 
-### Technical Note on Streaming
-While the project implements a "Streaming" layer, it is important to note that the YouTube Data API v3 is REST-based and does not support native WebSocket streaming (push).
+```bash
+git clone https://github.com/redzyc/data-engineering-youtube-pipeline.git
+cd data-engineering-youtube-pipeline
+```
 
-Solution: We simulate streaming using a High-Frequency Polling mechanism.
+2. Create and activate a virtual environment, then install dependencies
 
-Implementation: Apache NiFi / Python scripts allow us to fetch "new" data at short intervals, effectively creating a data stream for the downstream Kafka topics.
+Mac / Linux (recommended):
 
-### Qucik Start
-Prerequisites:
-    Docker & Docker Compose
-    Python 3.x
-
-### Setup
-
-#### 1. Clone the repository:
-
-\`\`\`bash
-git clone https://github.com/YOUR_USERNAME/REPO_NAME.git
-cd data-engineering-masterclass
-\`\`\`
-
-#### 2. Create a virtual environment and install dependencies:
-
-\`\`\`bash
+```bash
 python3 -m venv venv
 source venv/bin/activate
+# upgrade packaging tools before installing requirements
+pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
-\`\`\`
+```
 
-#### 3. Configure Environment Variables:
+Windows (PowerShell):
 
-Create a **.env** file in the root directory:
+```powershell
+python -m venv venv
+# activate the venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+```
 
-\`\`\`
-# .env file content
+Tip: You can also use pipx, pipenv, or poetry if you prefer other virtual environment / dependency managers.
+
+---
+
+## Environment variables
+
+This repository expects the YouTube API key and other secrets to be provided as environment variables. You can store them in a `.env` file in the project root or export them directly in your shell.
+
+Example `.env` (do not commit your secrets to source control):
+
+```
 YOUTUBE_API_KEY=your_api_key_here
-\`\`\`
+# Optionally: OTHER_SERVICE_KEY=...
+```
 
-#### 4. Run the ingestion test:
 
-\`\`\`bash
+---
+
+## Run the ingestion client
+
+Run a quick ingestion script to test your setup:
+
+```bash
+# from project root
 python src/ingestion/youtube_client.py
-\`\`\`
+```
+
+If your API key is correctly set in the environment, the client will fetch sample results and print or save them to `data/raw/` depending on the configured behavior.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please open an issue to discuss larger changes. For code contributions:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for any new behavior
+4. Open a pull request with a clear description
+
+---
+
+## License
+
+This project is licensed under the terms defined in the `LICENSE` file.
+
+---
