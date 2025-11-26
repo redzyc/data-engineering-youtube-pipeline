@@ -7,6 +7,7 @@ An end-to-end data engineering pipeline implementing the Lambda Architecture. Th
 - [Features](#features)
 - [Phase I: Data Source & Extraction](#-phase-i-data-source--extraction-completed)
 - [Phase II: Infrastructure & Ingestion](#-phase-ii-infrastructure--ingestion-completed)
+- [Phase III: Batch Processing & Orchestration](#-phase-iii-batch-processing--orchestration-completed)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
@@ -37,7 +38,7 @@ This repository follows the Lambda Architecture to balance low-latency stream pr
  
 ---
 
-## 📍 Phase I: Data Source & Extraction (Completed)
+##  Phase I: Data Source & Extraction (Completed)
 
 Phase I focused on establishing secure, maintainable connectivity to external data sources and building a reliable extraction client. The goal was a small, well-tested set of extraction components that can be run locally or inside containers and that adhere to security best practices.
 
@@ -48,7 +49,7 @@ Phase I focused on establishing secure, maintainable connectivity to external da
 - Client: A modular Python client (YouTubeClient) performs authenticated API calls with error handling and retry logic.
 - Data entities captured: video metadata (title, id, channel) and statistics (view count, like count).
 
-### ⚠️ Technical note on streaming
+###  Technical note on streaming
 
 The YouTube Data API is REST-based and does not provide push-style streaming (WebSockets). To enable a streaming-like workflow we simulate a speed layer using high-frequency polling combined with NiFi and Kafka.
 
@@ -56,7 +57,7 @@ Solution: A scheduled extraction (Python) writes time-stamped JSON snapshots to 
 
 Implementation: Python extraction scripts and NiFi processors that detect new files handle data freshness; the approach is intentionally simple and easy to debug.
 
-### 🚀 Quick start (Phase I)
+###  Quick start (Phase I)
 
 Follow Setup and Environment sections above for a full environment. Quick checklist to test extraction locally:
 
@@ -72,11 +73,11 @@ If the API key is set and network access is available, the client writes timesta
 
 ---
 
-## ⚙️ Phase II: Infrastructure & Ingestion (Completed)
+## Phase II: Infrastructure & Ingestion (Completed)
 
 Building on the initial data-source work (Phase I), Phase II establishes the infrastructure and ingestion layer that turns API extraction into a robust, reproducible data flow. The focus here was on containerized infrastructure, a durable landing pattern, and reliable routing for both batch and speed paths following the Lambda Architecture.
 
-### 🏗 Infrastructure stack (Docker)
+###  Infrastructure stack (Docker)
 
 The platform runs in Docker containers defined by `docker/docker-compose.yaml` and includes:
 
@@ -84,7 +85,7 @@ The platform runs in Docker containers defined by `docker/docker-compose.yaml` a
 - **Apache Kafka & Zookeeper** — Message broker for the speed layer and stream-driven pipelines.
 - **MinIO** — S3-compatible object store used as the raw Data Lake for immutable archives.
 
-### 🔄 Ingestion design & data flow
+###  Ingestion design & data flow
 
 We implemented a localized "Landing Zone" pattern that decouples the extraction step (Python client) from NiFi ingestion logic. This keeps the extraction process simple and testable while giving NiFi the responsibility for durable ingestion and routing.
 
@@ -104,13 +105,57 @@ How it works (brief):
 	- Batch (historical): Raw JSON files are archived to MinIO (youtube-raw bucket) for batch processing and lineage.
 	- Speed (near-real-time): NiFi splits JSON into records and publishes them to the `youtube_stream` Kafka topic for streaming pipelines.
 
-### 🛠 Key technical configurations
+###  Key technical configurations
 
 - NiFi Controller Services — configured a `KafkaConnectionService` and an `AWSCredentialsProviderService` to avoid embedding credentials in processors.
 - MinIO — path-style access enabled to ensure compatibility with NiFi’s S3-compatible processors.
 - Kafka listeners — PLAINTEXT listeners were configured for internal Docker communication (NiFi → Kafka) and to allow external access when debugging locally.
 
 This phase lays the foundation for resilient ingestion and clear separation of concerns. It keeps extraction lightweight, ingestion reliable, and storage immutable — all requirements for a maintainable data platform.
+
+---
+
+##  Phase III: Batch Processing & Orchestration (Completed)
+
+Phase III delivers the core batch ETL and orchestration layer using the Medallion Architecture and automated execution. The goal was to transform raw, immutable data into clean and aggregated datasets suitable for downstream analytics and dashboarding while providing monitoring and scheduling via Airflow.
+
+### Medallion Architecture implementation
+
+Data are processed using Apache Spark across three layers:
+
+1. **Bronze (Raw)** — immutable JSON objects archived in MinIO (`youtube-raw`) and preserved for lineage and reprocessing.
+2. **Silver (Cleaned)** — Spark transforms raw records: schema enforcement and casting, deduplication, and handling missing values (imputation). Cleaned datasets are stored as partitioned, optimized Parquet files in MinIO (`youtube-silver`) (partitioned by channel for parallel reads).
+3. **Gold (Aggregated / Serving)** — business-level aggregation and enrichment to produce query-ready tables (e.g., total views per channel, rolling averages). The final tables are persisted to PostgreSQL (`youtube_analytics`) for fast BI queries.
+
+###  Orchestration & automation (Apache Airflow)
+
+We orchestrated the pipeline with Airflow so ETL jobs run automatically on schedule and provide visibility into successes/failures and retry behavior.
+
+```mermaid
+graph LR
+		subgraph "Airflow DAG"
+			A[Start] --> B[Raw → Silver]
+			B --> C[Silver → Gold]
+			C --> D[End]
+		end
+
+		subgraph "Execution Environment"
+			B -.->|docker exec| E[Spark master container]
+			C -.->|docker exec| E
+			E -->|read/write| F[(MinIO Data Lake)]
+			E -->|jdbc write| G[(PostgreSQL - youtube_analytics)]
+		end
+```
+
+###  Key technical achievements & optimizations
+
+- Docker-in-Docker (DooD) pattern — Airflow triggers Spark jobs using the host Docker socket (`/var/run/docker.sock`) so we avoid bundling Spark inside Airflow and keep Airflow containers lean.
+- Compatibility & binary management — solved GLIBC and Docker API mismatches by embedding a lightweight static Docker client in the Airflow image and setting a stable API version header (1.41) in the DAG executor.
+- Dependency management — Spark runtime dependencies (hadoop-aws, aws-java-sdk, postgresql JDBC) are managed explicitly via Spark JARs in the `docker/spark-jars` folder, avoiding fragile runtime downloads.
+- Data layout & performance — Silver datasets are written as partitioned Parquet with tuned file sizes and compression to optimize downstream reads and reduce I/O.
+- Infrastructure as code — Postgres bootstrapping runs via `sql/init.sql` during container startup so the serving DB is ready for ingestion without manual setup.
+
+This phase completes the batch side of the Lambda Architecture and provides a production-ready path from raw API payloads to analytics-grade tables served from PostgreSQL.
 
 ---
 

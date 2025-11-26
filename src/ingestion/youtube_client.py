@@ -14,7 +14,7 @@ class YouTubeClient:
             raise ValueError("YOUTUBE_API_KEY not found in environment variables.")
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
     
-    def search_videos(self, query, max_results=5):
+    def search_videos(self, query, max_results=100):
         try:
             request = self.youtube.search().list(
                 q=query,
@@ -27,13 +27,13 @@ class YouTubeClient:
         except HttpError as e:
             print(f"An HTTP error occurred: {e}")
             return []
-    def get_video_details(self, video_id):
-        if not video_id:
+    def get_video_details(self, video_ids):
+        if not video_ids:
             return [] 
         try:
             request = self.youtube.videos().list(
                 part='snippet,contentDetails,statistics',
-                id=','.join([video_id])
+                id=','.join(video_ids)
             )
             response = request.execute()
             return response.get('items', [])
@@ -44,13 +44,14 @@ class YouTubeClient:
 if __name__ == "__main__":
     try:
         client = YouTubeClient()
-        serach_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence"]
+        search_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence"]
 
         all_videos = []
-        for item in serach_items:
-            ids = client.search_videos(item, max_results=2)
+        for item in search_items:
+            ids = client.search_videos(item, max_results=50)
             if ids:
-                details = client.get_video_details(ids[0]['id']['videoId'])
+                video_ids = [video['id']['videoId'] for video in ids]
+                details = client.get_video_details(video_ids)
                 all_videos.extend(details)
         if all_videos:
             timestamp = int(__import__('time').time())

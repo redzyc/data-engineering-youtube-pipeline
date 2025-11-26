@@ -12,6 +12,11 @@ venv/
 
 # Logs
 *.log
+logs/
 
 # Ignore data files
 data/
+
+#Ignore DS Store files
+.DS_Store
+
