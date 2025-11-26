@@ -20,3 +20,5 @@ data/
 #Ignore DS Store files
 .DS_Store
 
+#Ignore aws jar file
+docker/spark-jars/aws-java-sdk-bundle-1.12.540.jar
