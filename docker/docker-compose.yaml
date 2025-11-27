@@ -23,7 +23,7 @@ services:
     command: bash -c "apt-get update && apt-get install -y curl && \
                       curl -sSL https://download.docker.com/linux/static/stable/x86_64/docker-25.0.0.tgz | tar -xz -C /usr/local/bin/ --strip-components=1 && \
                       airflow db init && \
-                      airflow users create --username admin --firstname Peter --lastname Parker --role Admin --email spiderman@superhero.org --password admin && \
+                      airflow users create --username admin --firstname Admin --lastname Adminovic --role Admin --email adminn@admin.org --password admin && \
                       airflow webserver & airflow scheduler"
     networks:
       - data_network

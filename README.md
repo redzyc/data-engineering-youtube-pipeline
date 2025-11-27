@@ -7,7 +7,8 @@ An end-to-end data engineering pipeline implementing the Lambda Architecture. Th
 - [Features](#features)
 - [Phase I: Data Source & Extraction](#-phase-i-data-source--extraction-completed)
 - [Phase II: Infrastructure & Ingestion](#-phase-ii-infrastructure--ingestion-completed)
-- [Phase III: Batch Processing & Orchestration](#-phase-iii-batch-processing--orchestration-completed)
+ - [Phase III: Batch Processing & Orchestration](#-phase-iii-batch-processing--orchestration-completed)
+- [Phase IV: Real-Time Streaming](#-phase-iv-real-time-streaming-completed)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
@@ -156,6 +157,77 @@ graph LR
 - Infrastructure as code — Postgres bootstrapping runs via `sql/init.sql` during container startup so the serving DB is ready for ingestion without manual setup.
 
 This phase completes the batch side of the Lambda Architecture and provides a production-ready path from raw API payloads to analytics-grade tables served from PostgreSQL.
+
+---
+
+##  Phase IV: Real-Time Streaming (Completed)
+
+In Phase IV we completed the speed layer — the part of the system that makes data available almost immediately so you can react to sudden changes (for example, when a video goes viral).
+
+The goal here was to process messages coming from Kafka in near real time, keep the runtime footprint small, and ensure reliable writes to the serving database so dashboards can query up-to-date metrics.
+
+###  Spark Structured Streaming — the approach
+
+We chose Spark Structured Streaming because it fits the micro-batch model we use for reliable stateful processing while keeping it simple to deploy inside the Docker environment.
+
+Key points:
+- The job runs as a micro-batch process with a short trigger interval (10 seconds) so results appear quickly without overwhelming the system.
+- It reads from the `youtube_stream` Kafka topic and enforces a strict schema to drop malformed messages early.
+
+###  Stream processing flow
+
+The `process_streaming.py` job performs the streaming pipeline steps in a robust, resource-conscious way:
+
+1. Ingest: consume messages from the `youtube_stream` topic.
+2. Schema enforcement: parse and validate JSON payloads using a strict StructType; malformed records are discarded and logged so they don't poison downstream state.
+3. Windowed aggregation: compute rolling metrics (e.g. total views, video count) using 1-minute tumbling windows for near-real-time analytics.
+4. Watermarking: maintain a 10-minute watermark to safely handle late-arriving data while keeping state sizes practical.
+
+```mermaid
+graph LR
+	A{{Kafka Topic<br/>youtube_stream}} ==>|ReadStream| B(Spark Structured Streaming)
+	B -->|Schema Validation| C{Transformation}
+	C -->|Windowed Aggregation| D[State Store]
+	D ==>|foreachBatch JDBC| E[(PostgreSQL<br/>realtime_stats)]
+```
+
+###  Technical highlights & optimizations
+
+- ForeachBatch writer: uses a single, pooled JDBC writer per micro-batch to avoid opening a connection per row — this significantly reduces latency and connection churn when writing to Postgres.
+- Tune-for-local: reduced `spark.sql.shuffle.partitions` (set to 2 for local/dev) to avoid unnecessary shuffle overhead and prevent state store memory pressure on single-node setups.
+- Practical observability: micro-batches print short, informative summaries to logs (rows processed, late events, aggregation latency) to make debugging easy.
+- Latency goals: with the above settings, end-to-end results become queryable in Postgres in ~15 seconds under realistic local load.
+
+This completes Phase IV — the platform now supports both rich historical analysis and rapid, near-real-time use cases.
+
+---
+
+### How to commit Phase IV to Git (quick copy)
+
+If you want to "cement" this work into Git history and keep a clean commit message, you can run the following commands from the repository root:
+
+```bash
+# stage the README change
+git add README.md
+
+# create a focused commit with a concise message
+git commit -m "docs(readme): add Phase IV — Real-Time Streaming (speed layer completed)"
+
+# push your changes to the main branch (or open a PR from a branch)
+git push origin main
+```
+
+If you prefer to prepare a draft branch and open a pull request (recommended for collaborative projects):
+
+```bash
+git switch -c feat/docs/phase-iv-streaming
+git add README.md
+git commit -m "docs(readme): add Phase IV — Real-Time Streaming"
+git push --set-upstream origin feat/docs/phase-iv-streaming
+# then open a PR via GitHub UI
+```
+
+---
 
 ---
 

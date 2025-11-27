@@ -18,6 +18,7 @@ def process_data():
     raw_data_path = "s3a://youtube-raw/*.json"
     silver_data_path = "s3a://youtube-silver/videos_parquet"
 
+
     #1 Exctract
     try:
         df_raw = spark.read.option("multiline", "true").json(raw_data_path)

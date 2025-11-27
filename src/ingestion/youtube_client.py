@@ -14,7 +14,7 @@ class YouTubeClient:
             raise ValueError("YOUTUBE_API_KEY not found in environment variables.")
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
     
-    def search_videos(self, query, max_results=100):
+    def search_videos(self, query, max_results=1000):
         try:
             request = self.youtube.search().list(
                 q=query,
@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
         all_videos = []
         for item in search_items:
-            ids = client.search_videos(item, max_results=50)
+            ids = client.search_videos(item, max_results=200)
             if ids:
                 video_ids = [video['id']['videoId'] for video in ids]
                 details = client.get_video_details(video_ids)
