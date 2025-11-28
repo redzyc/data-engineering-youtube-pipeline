@@ -1,40 +1,14 @@
 services:
-  airflow:
-    user: root
-    image: apache/airflow:2.7.1
-    container_name: airflow
-    depends_on:
-    - postgres
-    - spark-master
-    environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://postgres:postgres@postgres:5432/youtube_analytics
-      AIRFLOW__CORE_DAGS_ARE_PAUSED_AT_CREATION: "true"
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__WEBSERVER_EXPOSE_CONFIG: "true"
-    volumes:
-      - ../dags:/opt/airflow/dags
-      - ../logs/airflow:/opt/airflow/logs
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /usr/bin/docker:/usr/bin/docker
-      - ../src/processing:/opt/spark/jobs
-    ports:
-      - "8081:8080"
-    command: bash -c "apt-get update && apt-get install -y curl && \
-                      curl -sSL https://download.docker.com/linux/static/stable/x86_64/docker-25.0.0.tgz | tar -xz -C /usr/local/bin/ --strip-components=1 && \
-                      airflow db init && \
-                      airflow users create --username admin --firstname Admin --lastname Adminovic --role Admin --email adminn@admin.org --password admin && \
-                      airflow webserver & airflow scheduler"
-    networks:
-      - data_network
-
+#1 Storage services
   postgres:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: postgres
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: youtube_analytics
+      POSTGRES_INITDB_ARGS: "--auth-local=peer --auth-host=md5"
     ports:
       - "5432:5432"
     volumes:
@@ -42,9 +16,15 @@ services:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - data_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   minio:
     image: minio/minio:latest
     container_name: minio
+    restart: always
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -61,18 +41,31 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+
+      
+      
+      
+#2 Ingestion services
+  
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
+    restart: always
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     networks:
       - data_network
+    healthcheck:
+      test: echo srvr | nc localhost 2181 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
+    restart: always
     ports:
       - "9092:9092" 
     depends_on:
@@ -84,12 +77,21 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
       - data_network
+    healthcheck:
+      test: nc -z localhost 9092 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
   
   nifi:
     image: apache/nifi:latest
     container_name: nifi
+    restart: unless-stopped
     ports:
       - "8443:8443" 
     environment:
@@ -104,9 +106,11 @@ services:
     networks:
       - data_network
 
+#3 Processing services
   spark-master:
     image: apache/spark:3.5.0-python3
     container_name: spark-master
+    restart: always
     user: root 
     environment:
       - SPARK_MODE=master
@@ -124,14 +128,16 @@ services:
     networks:
       - data_network
 
-  spark-worker:
+  spark-worker1:
     image: apache/spark:3.5.0-python3
-    container_name: spark-worker
+    container_name: spark-worker-1
     user: root
+    depends_on:
+      - spark-master
     environment:
       - SPARK_MODE=worker
-      - SPARK_WORKER_CORES=1
-      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2G
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
@@ -142,8 +148,128 @@ services:
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     networks:
       - data_network
+
+  spark-worker2:
+    image: apache/spark:3.5.0-python3
+    container_name: spark-worker-2
+    user: root
     depends_on:
       - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    volumes:
+      - ../src/processing:/opt/spark/jobs
+      - ./spark-jars:/opt/spark/jars-custom
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    networks:
+      - data_network
+
+  spark-streaming-job:
+    image: apache/spark:3.5.0-python3
+    container_name: spark-streaming-job
+    restart: always 
+    depends_on:
+      - spark-master
+      - kafka
+      - postgres
+    environment:
+      - SPARK_MODE=submit
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    volumes:
+      - ../src/processing:/opt/spark/jobs
+      - ./spark-jars:/opt/spark/jars-custom
+    networks:
+      - data_network
+    command: >
+      /opt/spark/bin/spark-submit 
+      --master spark://spark-master:7077 
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 
+      --jars /opt/spark/jars-custom/postgresql-42.7.8.jar 
+      --driver-class-path /opt/spark/jars-custom/postgresql-42.7.8.jar 
+      --conf spark.cores.max=2 
+      /opt/spark/jobs/process_streaming.py
+
+
+#4 Orchestration services
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow  
+    restart: always
+    user: root
+    depends_on:
+      postgres:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+    environment:
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      INGESTION_OUTPUT_DIR: /opt/airflow/ingest_buffer
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE_DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER_EXPOSE_CONFIG: "true"
+      AIRFLOW__WEBSERVER__SESSION_COOKIE_NAME: airflow_session
+    env_file:
+      - ../.env
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../logs/airflow:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - ../src/processing:/opt/spark/jobs
+      - ../src/ingestion:/opt/airflow/ingestion_scripts
+      - ../data/ingest:/opt/airflow/ingest_buffer
+    ports:
+      - "8081:8080"
+    command: >
+      bash -c "
+      airflow db init &&
+      airflow users create --username admin --firstname Admin --lastname Adminovic --role Admin --email adminn@admin.org --password admin &&
+      airflow webserver & airflow scheduler
+      "
+    networks:
+      - data_network
+
+
+
+#5 Visualization services
+  superset:
+    image: apache/superset:4.0.2
+    container_name: superset
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+    - SUPERSET_SECRET_KEY=tajni_kljuc112233
+      - GUNICORN_KEEP_ALIVE=120
+      - GUNICORN_KEEP_ALIVE=120
+      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
+      
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./superset/superset_config.py:/app/pythonpath/superset_config.py
+    command: >
+      sh -c "
+      superset fab create-admin --username admin --firstname Admin --lastname Adminovic --email admin@admin.com --password admin &&
+      superset db upgrade &&
+      superset init &&
+      /usr/bin/run-server.sh"
+    networks:
+      - data_network
 
 networks:
   data_network:

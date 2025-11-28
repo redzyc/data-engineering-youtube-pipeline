@@ -1,0 +1,20 @@
+FROM apache/airflow:2.7.1
+
+USER root
+
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    netcat-openbsd \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV DOCKER_VERSION=25.0.0
+RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz \
+    | tar -xz -C /usr/local/bin --strip-components=1 docker/docker
+
+USER airflow
+
+RUN pip install --no-cache-dir google-api-python-client python-dotenv requests
+USER root
