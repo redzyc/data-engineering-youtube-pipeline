@@ -14,7 +14,7 @@ class YouTubeClient:
             raise ValueError("YOUTUBE_API_KEY not found in environment variables.")
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
     
-    def search_videos(self, query, max_results=1000):
+    def search_videos(self, query, max_results=10):
         try:
             request = self.youtube.search().list(
                 q=query,
@@ -43,12 +43,14 @@ class YouTubeClient:
         
 if __name__ == "__main__":
     try:
+        base_output_dir = os.getenv("INGESTION_OUTPUT_DIR", "data/ingest")
+
         client = YouTubeClient()
-        search_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence"]
+        search_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence", "Big Data", "Cloud Computing", "Data Science", "Deep Learning", "Neural Networks", "Python Programming", "Statistics"]
 
         all_videos = []
         for item in search_items:
-            ids = client.search_videos(item, max_results=200)
+            ids = client.search_videos(item, max_results=5)
             if ids:
                 video_ids = [video['id']['videoId'] for video in ids]
                 details = client.get_video_details(video_ids)
@@ -57,12 +59,13 @@ if __name__ == "__main__":
             timestamp = int(__import__('time').time())
             filename = f'youtube_videos_{timestamp}.json'
 
-            output_path = os.path.join('data', 'ingest', filename)
+            output_path = os.path.join(base_output_dir, filename)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'w') as f:
                 json.dump(all_videos, f, indent=4)
             print(f"Video details saved to {output_path}")
         else:
             print("No video details found.")
-    except ValueError as ve:
-        print(ve)
+    except Exception as e:
+        print(f"An error occurred during ingestion: {e}")
+        exit(1)

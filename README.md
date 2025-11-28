@@ -7,8 +7,9 @@ An end-to-end data engineering pipeline implementing the Lambda Architecture. Th
 - [Features](#features)
 - [Phase I: Data Source & Extraction](#-phase-i-data-source--extraction-completed)
 - [Phase II: Infrastructure & Ingestion](#-phase-ii-infrastructure--ingestion-completed)
- - [Phase III: Batch Processing & Orchestration](#-phase-iii-batch-processing--orchestration-completed)
+- [Phase III: Batch Processing & Orchestration](#-phase-iii-batch-processing--orchestration-completed)
 - [Phase IV: Real-Time Streaming](#-phase-iv-real-time-streaming-completed)
+- [Phase V: Visualization & Serving](#-phase-v-visualization--serving-completed)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
@@ -39,7 +40,7 @@ This repository follows the Lambda Architecture to balance low-latency stream pr
  
 ---
 
-##  Phase I: Data Source & Extraction (Completed)
+## Phase I: Data Source & Extraction (Completed)
 
 Phase I focused on establishing secure, maintainable connectivity to external data sources and building a reliable extraction client. The goal was a small, well-tested set of extraction components that can be run locally or inside containers and that adhere to security best practices.
 
@@ -50,7 +51,7 @@ Phase I focused on establishing secure, maintainable connectivity to external da
 - Client: A modular Python client (YouTubeClient) performs authenticated API calls with error handling and retry logic.
 - Data entities captured: video metadata (title, id, channel) and statistics (view count, like count).
 
-###  Technical note on streaming
+### Technical note on streaming
 
 The YouTube Data API is REST-based and does not provide push-style streaming (WebSockets). To enable a streaming-like workflow we simulate a speed layer using high-frequency polling combined with NiFi and Kafka.
 
@@ -58,7 +59,7 @@ Solution: A scheduled extraction (Python) writes time-stamped JSON snapshots to 
 
 Implementation: Python extraction scripts and NiFi processors that detect new files handle data freshness; the approach is intentionally simple and easy to debug.
 
-###  Quick start (Phase I)
+### Quick start (Phase I)
 
 Follow Setup and Environment sections above for a full environment. Quick checklist to test extraction locally:
 
@@ -78,7 +79,7 @@ If the API key is set and network access is available, the client writes timesta
 
 Building on the initial data-source work (Phase I), Phase II establishes the infrastructure and ingestion layer that turns API extraction into a robust, reproducible data flow. The focus here was on containerized infrastructure, a durable landing pattern, and reliable routing for both batch and speed paths following the Lambda Architecture.
 
-###  Infrastructure stack (Docker)
+### Infrastructure stack (Docker)
 
 The platform runs in Docker containers defined by `docker/docker-compose.yaml` and includes:
 
@@ -86,7 +87,7 @@ The platform runs in Docker containers defined by `docker/docker-compose.yaml` a
 - **Apache Kafka & Zookeeper** — Message broker for the speed layer and stream-driven pipelines.
 - **MinIO** — S3-compatible object store used as the raw Data Lake for immutable archives.
 
-###  Ingestion design & data flow
+### Ingestion design & data flow
 
 We implemented a localized "Landing Zone" pattern that decouples the extraction step (Python client) from NiFi ingestion logic. This keeps the extraction process simple and testable while giving NiFi the responsibility for durable ingestion and routing.
 
@@ -106,7 +107,7 @@ How it works (brief):
 	- Batch (historical): Raw JSON files are archived to MinIO (youtube-raw bucket) for batch processing and lineage.
 	- Speed (near-real-time): NiFi splits JSON into records and publishes them to the `youtube_stream` Kafka topic for streaming pipelines.
 
-###  Key technical configurations
+### Key technical configurations
 
 - NiFi Controller Services — configured a `KafkaConnectionService` and an `AWSCredentialsProviderService` to avoid embedding credentials in processors.
 - MinIO — path-style access enabled to ensure compatibility with NiFi’s S3-compatible processors.
@@ -116,7 +117,7 @@ This phase lays the foundation for resilient ingestion and clear separation of c
 
 ---
 
-##  Phase III: Batch Processing & Orchestration (Completed)
+## Phase III: Batch Processing & Orchestration (Completed)
 
 Phase III delivers the core batch ETL and orchestration layer using the Medallion Architecture and automated execution. The goal was to transform raw, immutable data into clean and aggregated datasets suitable for downstream analytics and dashboarding while providing monitoring and scheduling via Airflow.
 
@@ -128,7 +129,7 @@ Data are processed using Apache Spark across three layers:
 2. **Silver (Cleaned)** — Spark transforms raw records: schema enforcement and casting, deduplication, and handling missing values (imputation). Cleaned datasets are stored as partitioned, optimized Parquet files in MinIO (`youtube-silver`) (partitioned by channel for parallel reads).
 3. **Gold (Aggregated / Serving)** — business-level aggregation and enrichment to produce query-ready tables (e.g., total views per channel, rolling averages). The final tables are persisted to PostgreSQL (`youtube_analytics`) for fast BI queries.
 
-###  Orchestration & automation (Apache Airflow)
+### Orchestration & automation (Apache Airflow)
 
 We orchestrated the pipeline with Airflow so ETL jobs run automatically on schedule and provide visibility into successes/failures and retry behavior.
 
@@ -148,7 +149,7 @@ graph LR
 		end
 ```
 
-###  Key technical achievements & optimizations
+### Key technical achievements & optimizations
 
 - Docker-in-Docker (DooD) pattern — Airflow triggers Spark jobs using the host Docker socket (`/var/run/docker.sock`) so we avoid bundling Spark inside Airflow and keep Airflow containers lean.
 - Compatibility & binary management — solved GLIBC and Docker API mismatches by embedding a lightweight static Docker client in the Airflow image and setting a stable API version header (1.41) in the DAG executor.
@@ -160,13 +161,13 @@ This phase completes the batch side of the Lambda Architecture and provides a pr
 
 ---
 
-##  Phase IV: Real-Time Streaming (Completed)
+## Phase IV: Real-Time Streaming (Completed)
 
 In Phase IV we completed the speed layer — the part of the system that makes data available almost immediately so you can react to sudden changes (for example, when a video goes viral).
 
 The goal here was to process messages coming from Kafka in near real time, keep the runtime footprint small, and ensure reliable writes to the serving database so dashboards can query up-to-date metrics.
 
-###  Spark Structured Streaming — the approach
+### Spark Structured Streaming — the approach
 
 We chose Spark Structured Streaming because it fits the micro-batch model we use for reliable stateful processing while keeping it simple to deploy inside the Docker environment.
 
@@ -174,7 +175,7 @@ Key points:
 - The job runs as a micro-batch process with a short trigger interval (10 seconds) so results appear quickly without overwhelming the system.
 - It reads from the `youtube_stream` Kafka topic and enforces a strict schema to drop malformed messages early.
 
-###  Stream processing flow
+### Stream processing flow
 
 The `process_streaming.py` job performs the streaming pipeline steps in a robust, resource-conscious way:
 
@@ -191,7 +192,7 @@ graph LR
 	D ==>|foreachBatch JDBC| E[(PostgreSQL<br/>realtime_stats)]
 ```
 
-###  Technical highlights & optimizations
+### Technical highlights & optimizations
 
 - ForeachBatch writer: uses a single, pooled JDBC writer per micro-batch to avoid opening a connection per row — this significantly reduces latency and connection churn when writing to Postgres.
 - Tune-for-local: reduced `spark.sql.shuffle.partitions` (set to 2 for local/dev) to avoid unnecessary shuffle overhead and prevent state store memory pressure on single-node setups.
@@ -202,53 +203,78 @@ This completes Phase IV — the platform now supports both rich historical analy
 
 ---
 
-### How to commit Phase IV to Git (quick copy)
 
-If you want to "cement" this work into Git history and keep a clean commit message, you can run the following commands from the repository root:
+## Phase V: Visualization & Serving (Completed)
 
-```bash
-# stage the README change
-git add README.md
+Phase V turns processed data into insight. The serving layer and dashboards make both accurate historical views and fast, near-real-time metrics available to analysts and stakeholders.
 
-# create a focused commit with a concise message
-git commit -m "docs(readme): add Phase IV — Real-Time Streaming (speed layer completed)"
+### Serving storage — PostgreSQL
 
-# push your changes to the main branch (or open a PR from a branch)
-git push origin main
-```
+We use PostgreSQL as the single serving store so dashboards query consistent, SQL-first datasets. The database is organized into separate schemas to keep responsibilities clear:
 
-If you prefer to prepare a draft branch and open a pull request (recommended for collaborative projects):
+- `gold_layer` — stores analytics-ready, historical aggregates produced by batch jobs (Airflow + Spark).
+- `speed_layer` — stores windowed, near-real-time metrics produced by Spark Structured Streaming (Phase IV).
 
-```bash
-git switch -c feat/docs/phase-iv-streaming
-git add README.md
-git commit -m "docs(readme): add Phase IV — Real-Time Streaming"
-git push --set-upstream origin feat/docs/phase-iv-streaming
-# then open a PR via GitHub UI
-```
+This split lets BI tools pick the dataset that fits the use-case: accuracy or speed.
 
----
+### Visualization — Apache Superset
+
+Superset is our BI front-end. It connects to the Postgres serving DB and hosts dashboards tuned for live operations and executive reporting.
+
+Dashboards shipped with the project:
+- **Real-Time Operations Center** — powered by `speed_layer`, refreshes automatically (≈10s), and surfaces live metrics such as per-minute view counts and trending videos.
+- **Executive Historical Report** — powered by `gold_layer`, provides business-level KPIs: total views per channel, daily engagement growth, and top-performing categories.
+
+### Key challenges we solved (and how)
+
+- Session stability: Superset sessions were unstable when containers restarted (keys rotated). We solved this by setting a fixed `SUPERSET_SECRET_KEY` (environment + `superset_config.py`) so sessions persist across restarts.
+- Resource isolation: Heavy Spark jobs interfered with Superset (Gunicorn timeouts). We added container resource limits (CPU / memory) and pinned a stable Superset image tag (3.1.0) to keep the web UI responsive.
+- Metadata corruption: During development, metadata encryption mismatches caused metadata issues. We enforced a clean metadata volume initialization strategy and add a short note in docs so new deployments start with a healthy metadata DB.
+
+### Outcome
+
+Phase V unifies batch and streaming results in a single, production-friendly interface. Analysts get trustworthy historical reports while operators get the live pulse of the system — all backed by a repeatable, containerized deployment.
+
 
 ---
 
 ## Project Structure
 
-Top-level layout:
+Top-level layout (high level):
 
 ```
 data-engineering-youtube-pipeline/
-├── config/              # configuration files and templates
-├── data/                # sample & raw data
-│   └── raw/
-├── docker/              # docker-compose and related infra
-├── src/
-│   ├── ingestion/       # data ingestion clients and helpers
-│   ├── processing/      # Spark jobs and ETL code
-│   └── visualization/   # dashboard and visualization configs
-├── tests/               # unit and integration tests
-├── requirements.txt     # Python dependencies
-└── README.md            # this file
+├── LICENSE                       # project license
+├── README.md                     # this file (documentation + quick start)
+├── requirements.txt              # Python dependencies for local tests and utilities
+├── .env                          # environment variables (not committed / local)
+├── config/                       # configuration templates and helper files
+├── dags/                         # Airflow DAGs and scheduling definitions
+│   ├── youtube_ingestion_dag.py
+│   └── youtube_pipeline_dag.py
+├── data/                         # sample inputs, landing zone and raw archives
+│   ├── ingest/                   # landing zone for ingestion (local/testing)
+│   └── raw/                      # small sample / raw files used by tests/examples
+├── docker/                       # container infra for local deployment
+│   ├── docker-compose.yaml
+│   ├── Dockerfile.airflow
+│   ├── spark-jars/               # pre-bundled Spark jar dependencies
+│   └── superset/                 # superset deployment files (configs, dockerfiles)
+├── sql/                          # database initialization scripts (e.g., init.sql)
+├── src/                          # source code
+│   ├── ingestion/                # API clients and ingestion helpers (YouTube client)
+│   ├── processing/               # Spark jobs: raw→silver, silver→gold, streaming
+│   └── visualization/            # dashboard configs or Superset assets
+├── superset/                     # Superset configuration and test dashboards
+├── logs/                         # CI / local runtime logs (excluded from VCS in prod)
+└── tests/                        # unit + integration tests
+
 ```
+
+Notes:
+- The layout groups concerns so contributors can find infra (`docker/`, `sql/`), orchestration (`dags/`), code (`src/`), and serving assets (`superset/`).
+- Keep secrets out of source control (.env, keys). Use `docker/.env` or CI secrets for deployments.
+- If you want, I can add a small file list per directory (for docs) or move diagrams into `docs/` so README stays concise.
 
 ---
 

@@ -5,6 +5,7 @@ venv/
 
 # Enviorment variables
 .env
+docker/.env
 
 # IDE
 .vscode/

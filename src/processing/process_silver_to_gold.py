@@ -43,7 +43,7 @@ def process_silver_to_gold():
     df_gold.write \
     .format("jdbc") \
     .option("url", jdbc_url) \
-    .option("dbtable", "analytics.channel_stats") \
+    .option("dbtable", "gold_layer.channel_daily_stats") \
     .option("user", "postgres") \
     .option("password", "postgres") \
     .options(driver="org.postgresql.Driver") \

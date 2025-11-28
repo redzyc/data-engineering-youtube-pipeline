@@ -6,7 +6,7 @@ SPARK_MASTER = "spark://spark-master:7077"
 SPARK_CONTAINER = "spark-master"
 
 JARS = "/opt/spark/jars-custom/hadoop-aws-3.3.4.jar,/opt/spark/jars-custom/aws-java-sdk-bundle-1.12.540.jar,/opt/spark/jars-custom/postgresql-42.7.8.jar"
-
+SCRIPT_INGESTION = "python3 /opt/airflow/ingestion_source/youtube_client.py" 
 SCRIPT_SILVER = "/opt/spark/jobs/process_raw_to_silver.py"
 SCRIPT_GOLD = "/opt/spark/jobs/process_silver_to_gold.py"
 
