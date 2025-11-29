@@ -16,5 +16,5 @@ RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-${D
 
 USER airflow
 
-RUN pip install --no-cache-dir google-api-python-client python-dotenv requests
-USER root
+RUN pip install python-dotenv
+RUN pip install google-api-python-client python-dotenv

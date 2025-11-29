@@ -170,34 +170,6 @@ services:
     networks:
       - data_network
 
-  spark-streaming-job:
-    image: apache/spark:3.5.0-python3
-    container_name: spark-streaming-job
-    restart: always 
-    depends_on:
-      - spark-master
-      - kafka
-      - postgres
-    environment:
-      - SPARK_MODE=submit
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    volumes:
-      - ../src/processing:/opt/spark/jobs
-      - ./spark-jars:/opt/spark/jars-custom
-    networks:
-      - data_network
-    command: >
-      /opt/spark/bin/spark-submit 
-      --master spark://spark-master:7077 
-      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 
-      --jars /opt/spark/jars-custom/postgresql-42.7.8.jar 
-      --driver-class-path /opt/spark/jars-custom/postgresql-42.7.8.jar 
-      --conf spark.cores.max=2 
-      /opt/spark/jobs/process_streaming.py
-
 
 #4 Orchestration services
   airflow:
@@ -230,7 +202,6 @@ services:
       - /usr/bin/docker:/usr/bin/docker
       - ../src/processing:/opt/spark/jobs
       - ../src/ingestion:/opt/airflow/ingestion_scripts
-      - ../data/ingest:/opt/airflow/ingest_buffer
     ports:
       - "8081:8080"
     command: >

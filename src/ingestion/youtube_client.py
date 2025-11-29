@@ -43,8 +43,6 @@ class YouTubeClient:
         
 if __name__ == "__main__":
     try:
-        base_output_dir = os.getenv("INGESTION_OUTPUT_DIR", "data/ingest")
-
         client = YouTubeClient()
         search_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence", "Big Data", "Cloud Computing", "Data Science", "Deep Learning", "Neural Networks", "Python Programming", "Statistics"]
 
@@ -59,7 +57,7 @@ if __name__ == "__main__":
             timestamp = int(__import__('time').time())
             filename = f'youtube_videos_{timestamp}.json'
 
-            output_path = os.path.join(base_output_dir, filename)
+            output_path = os.path.join('data','ingest', filename)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'w') as f:
                 json.dump(all_videos, f, indent=4)
