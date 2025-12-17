@@ -14,7 +14,7 @@ class YouTubeClient:
             raise ValueError("YOUTUBE_API_KEY not found in environment variables.")
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
     
-    def search_videos(self, query, max_results=10):
+    def search_videos(self, query, max_results=5):
         try:
             request = self.youtube.search().list(
                 q=query,
@@ -42,28 +42,38 @@ class YouTubeClient:
             return []
         
 if __name__ == "__main__":
-    try:
-        client = YouTubeClient()
-        search_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence", "Big Data", "Cloud Computing", "Data Science", "Deep Learning", "Neural Networks", "Python Programming", "Statistics"]
+        try:
+            client = YouTubeClient()
+            search_items = ["Data Engineering", "Machine Learning", "Artificial Intelligence", "Big Data", "Cloud Computing", "Data Science", "Deep Learning", "Neural Networks", "Python Programming", "Statistics"]
 
-        all_videos = []
-        for item in search_items:
-            ids = client.search_videos(item, max_results=5)
-            if ids:
-                video_ids = [video['id']['videoId'] for video in ids]
-                details = client.get_video_details(video_ids)
-                all_videos.extend(details)
-        if all_videos:
-            timestamp = int(__import__('time').time())
-            filename = f'youtube_videos_{timestamp}.json'
+            all_videos = []
+            for item in search_items:
+                ids = client.search_videos(item, max_results=5)
+                if ids:
+                    video_ids = [
+                        video["id"].get("videoId")
+                        for video in ids
+                        if 'videoId' in video['id']
+                    ]
+                    details = client.get_video_details(video_ids)
+                    all_videos.extend(details)
+            if all_videos:
+                timestamp = int(__import__('time').time())
+                filename = f'youtube_videos_{timestamp}.json'
 
-            output_path = os.path.join('data','ingest', filename)
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with open(output_path, 'w') as f:
-                json.dump(all_videos, f, indent=4)
-            print(f"Video details saved to {output_path}")
-        else:
-            print("No video details found.")
-    except Exception as e:
-        print(f"An error occurred during ingestion: {e}")
-        exit(1)
+                base_path = '/opt/airflow/data/ingestion'
+                output_path = os.path.join(base_path, filename)
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                with open(output_path, 'w') as f:
+                    json.dump(all_videos, f, indent=4)
+                try:
+                    os.chmod(output_path, 0o666)
+                except Exception as e:
+                    print(f"Warning: Could not change permissions: {e}")
+
+                print(f"Video details saved to {output_path}")
+            else:
+                print("No video details found.")
+        except Exception as e:
+            print(f"An error occurred during ingestion: {e}")
+            exit(1)

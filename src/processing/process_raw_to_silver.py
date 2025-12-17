@@ -35,12 +35,11 @@ def process_data():
     df_silver = df_raw.select(
         col("id").alias("video_id"),
         col("snippet.title").alias("title"),
-        col("snippet.description").alias("description"),
-        col("snippet.publishedAt").alias("published_at_str"),
         col("snippet.channelTitle").alias("channel_title"),
         col("statistics.viewCount").cast(LongType()).alias("view_count"),
         col("statistics.likeCount").cast(LongType()).alias("like_count"),
-        col("statistics.commentCount").cast(LongType()).alias("comment_count")
+        col("statistics.commentCount").cast(LongType()).alias("comment_count"),
+        col("snippet.publishedAt").alias("published_at_str")
     )
     df_silver = df_silver \
         .withColumn("published_at", to_timestamp(col("published_at_str"))) \

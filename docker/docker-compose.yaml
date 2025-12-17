@@ -3,12 +3,12 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: postgres
-    restart: always
+    restart: always #
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: youtube_analytics
-      POSTGRES_INITDB_ARGS: "--auth-local=peer --auth-host=md5"
+      POSTGRES_INITDB_ARGS: "--auth-local=peer --auth-host=md5" #
     ports:
       - "5432:5432"
     volumes:
@@ -101,7 +101,7 @@ services:
       - SINGLE_USER_CREDENTIALS_PASSWORD=admin1234sifra1234
     volumes:
       - nifi_data:/opt/nifi/nifi-current/conf
-      - ../data/ingest:/opt/nifi/nifi-current/ingest_source
+      - ../data/ingestion:/opt/nifi/nifi-current/ingest_source
       - ../src/ingestion:/opt/nifi/nifi-current/custom_scripts
     networks:
       - data_network
@@ -202,6 +202,7 @@ services:
       - /usr/bin/docker:/usr/bin/docker
       - ../src/processing:/opt/spark/jobs
       - ../src/ingestion:/opt/airflow/ingestion_scripts
+      - ../data/ingestion:/opt/airflow/data/ingestion
     ports:
       - "8081:8080"
     command: >

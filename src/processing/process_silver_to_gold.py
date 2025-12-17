@@ -29,21 +29,22 @@ def process_silver_to_gold():
         return
     
     #2 Transform
-    df_gold = df_silver.groupBy("channel_title").agg(
-        sum("view_count").alias("total_views"),
-        avg("like_count").alias("avg_likes"),
-        count("video_id").alias("video_count")
-    ).withColumn("last_update", current_timestamp())
+    df_gold = df_silver.select(
+        col("video_id"),
+        col("title"),
+        col("channel_title"),
+        col("view_count").alias("total_views"),
+        col("like_count").alias("total_likes"),
+        col("comment_count").alias("total_comments")
+    ).dropDuplicates(["video_id"])  
 
-    df_gold = df_gold.orderBy(desc("total_views"))
-    df_gold.show(5)
    
     #3 Load
     jdbc_url = "jdbc:postgresql://postgres:5432/youtube_analytics"
     df_gold.write \
     .format("jdbc") \
     .option("url", jdbc_url) \
-    .option("dbtable", "gold_layer.channel_daily_stats") \
+    .option("dbtable", "gold_layer.daily_stats") \
     .option("user", "postgres") \
     .option("password", "postgres") \
     .options(driver="org.postgresql.Driver") \

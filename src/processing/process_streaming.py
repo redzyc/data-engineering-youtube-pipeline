@@ -12,7 +12,8 @@ json_schema = StructType([
     ]), True),
     StructField("statistics", StructType([
         StructField("viewCount", StringType(), True), 
-        StructField("likeCount", StringType(), True)
+        StructField("likeCount", StringType(), True),
+        StructField("commentCount", StringType(), True)
     ]), True)
 ])
 def write_to_postgres(batch_df, batch_id):
@@ -34,7 +35,7 @@ def process_streaming_data():
     df_kafka_raw = spark.readStream \
         .format("kafka") \
         .option("kafka.bootstrap.servers", "kafka:29092") \
-        .option("subscribe", "youtube_stream") \
+        .option("subscribe", "youtube_raw") \
         .option("startingOffsets", "latest") \
         .load()
     
@@ -51,28 +52,36 @@ def process_streaming_data():
         col("snippet.channelTitle").alias("channel_title"),
         col("statistics.viewCount").cast("long").alias("view_count"),
         col("statistics.likeCount").cast("long").alias("like_count"),
+        col("statistics.commentCount").cast("long").alias("comment_count"),
         current_timestamp().alias("processing_time")
-    ).filter(col('video_id').isNotNull())
+    ).filter(col('video_id').isNotNull()) \
+     .fillna(0, subset=["view_count", "like_count", "comment_count"])
 
-    windowed_coumts =df_clean \
+    windowed_counts = df_clean \
         .withWatermark("processing_time", "10 minute") \
         .groupBy(
             window(col("processing_time"), "1 minute"),
-            col("channel_title")
+            col("video_id"),     
+            col("title"),         
+            col("channel_title") 
         ).agg(
             sum("view_count").alias("total_views"),
-            count("video_id").alias("video_count")
+            sum("like_count").alias("total_likes"),       
+            sum("comment_count").alias("total_comments") 
         ).select(
             col("window.start").alias("window_start"),
             col("window.end").alias("window_end"),
+            col("video_id"),
+            col("title"),
             col("channel_title"),
             col("total_views"),
-            col("video_count")
+            col("total_likes"),
+            col("total_comments")
         )
     
     #3 Load
 
-    query = windowed_coumts.writeStream \
+    query = windowed_counts.writeStream \
         .outputMode("update") \
         .foreachBatch(write_to_postgres) \
         .trigger(processingTime="10 seconds") \
